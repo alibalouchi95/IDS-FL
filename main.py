@@ -12,16 +12,12 @@ class FederatedLearning():
         self.F1_scores = []
 
     def run(self, total_gen_number=5):
+        IOT_devices = []
+        splitted_dataset = prepare_dataset(number_of_devices=4)
 
-        splitted_dataset = prepare_dataset(
-            number_of_devices=4, number_of_data=300000)
-
-        firstIOT = IOTDevice("first_IOT", splitted_dataset[0])
-        secondIOT = IOTDevice("second_IOT", splitted_dataset[1])
-        thirdIOT = IOTDevice("third_IOT", splitted_dataset[2])
-        fourthIOT = IOTDevice("fourth_IOT", splitted_dataset[3])
-
-        IOT_devices = [firstIOT, secondIOT, thirdIOT, fourthIOT]
+        for idx, _dataset in enumerate(splitted_dataset):
+            IOT_devices.append(
+                IOTDevice("{0}'s_IOT".format(idx + 1), _dataset))
 
         IOT_edge = IOTEdge()
 
@@ -31,11 +27,10 @@ class FederatedLearning():
             for IOT_device in IOT_devices:
                 IOT_device.update_model(self.model)
                 IOT_device.dataset_prep(gen_number + 1, total_gen_number)
-                IOT_device.train_model(100)
+                IOT_device.train_model(500)
                 self.weights.append(IOT_device.return_weights())
                 self.F1_scores.append(IOT_device.F1_score)
 
-                # self.test_data.append([IOT_device.X_test, IOT_device.y_test])
             self.model = IOT_edge.ensemble_models(self.weights, self.F1_scores)
             self.weights = []
             self.F1_scores = []

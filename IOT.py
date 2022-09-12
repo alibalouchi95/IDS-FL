@@ -76,8 +76,10 @@ class IOTDevice():
         train_dataset = new_dataset[msk]
         test_dataset = new_dataset[~msk]
 
-        print(new_dataset[new_dataset[" Label"] == 0].shape,
-              new_dataset[new_dataset[" Label"] == 1].shape)
+        print("BENIGN data shape in this train epoch dataset is: {0}".format(
+            new_dataset[new_dataset[" Label"] == 0].shape))
+        print("ATTACK data shape in this train epoch dataset: {0}".format(
+            new_dataset[new_dataset[" Label"] == 1].shape))
 
         self.dataset_loader_train = DataLoader(CustomDataset(
             train_dataset), batch_size=32, shuffle=True)
@@ -85,44 +87,38 @@ class IOTDevice():
         self.dataset_test = test_dataset
 
     def train_model(self, epochs):
-        model = copy.deepcopy(self.model)
-        optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
-
-        a = list(model.parameters())[0].clone()
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
 
         losses = []
+
+        print("training for {0} IOT device".format(self.name))
+
         for epoch in range(epochs):
             for x_train, y_train in self.dataset_loader_train:
-                pred_y = model(x_train)
+                pred_y = self.model(x_train)
 
                 pred_y = (pred_y > 0.5).float()
 
                 loss = loss_function(pred_y, y_train)
                 losses.append(loss.item())
 
-                # model.zero_grad()
+                self.model.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-            # if (epoch % 20 == 0):
-            #     print("     EPOCH %f" % (int(epoch)))
-            #     print("         LOSS %f" % (np.mean(losses)))
-
-        b = list(model.parameters())[0].clone()
-        print("EQUALS", torch.equal(a.data, b.data))
-
-        self.model = model
+            if (epoch % 20 == 0):
+                print("     EPOCH %f" % (int(epoch)))
+                print("         LOSS %f" % (np.mean(losses)))
 
         self.test_model()
         print("The {0}'s F1 score is: {1}, Recall is: {2}, Precision is: {3}".format(
-            self.name, self.F1_score, self.recall, self.precision))
+            self.name, self.F1_score, self.recall, self.precision), "\n")
 
     def test_model(self):
         with torch.no_grad():
             dataset = copy.deepcopy(self.dataset)
             y = dataset.drop(dataset_features, axis=1)
             X = dataset.drop(dataset_label, axis=1)
-            # print(X.values.shape, y.values.shape)
             y_pred = self.model(torch.Tensor(X.values))
 
             y_pred = (y_pred > 0.5).float()
@@ -131,7 +127,7 @@ class IOTDevice():
                     y, y_pred, average='macro', labels=np.unique(y_pred))[: 3]
             else:
                 print(
-                    "The predicted labels and test labels do not have same unique values")
+                    "WARNING: The predicted labels and test labels do not have same unique values")
                 self.precision, self.recall, self.F1_score = 0, 0, 0
 
     def return_weights(self):
